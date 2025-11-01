@@ -1,7 +1,7 @@
 package model;
-
+//ENCAPSULATION
 public class Customer{
-    private String CustomerID;
+    private String customerID;
     private String name;
     private String email;
     private String phoneNumber;
@@ -9,7 +9,7 @@ public class Customer{
     private String address;
     //constructor
     public Customer(String customerID, String name, String email, String phoneNumber, String cnic, String address){
-        this.CustomerID = customerID;
+        this.customerID = customerID;
         this.name = name;
         this.email = email;
         this.phoneNumber = phoneNumber;
@@ -17,8 +17,8 @@ public class Customer{
         this.address = address;
     }
     //getter and setter methods
-    public String getCustomerId(){return CustomerID;}
-    public void setCustomerID(string customerID){this.CustomerID = customerID;}
+    public String getCustomerID(){return customerID;}
+    public void setCustomerID(String customerID){this.customerID = customerID;}
 
     public String getName(){return name;}
     public void setName(String name){this.name = name;}
@@ -36,26 +36,14 @@ public class Customer{
     public void setAddress(String address){this.address = address;}
     
     // function to add to Add, edit, delete, and search customers.
-    private void displayCustomerDetails(){
+    public void displayCustomerDetails(){
         System.out.println("Customer Details:");
+        System.out.println("Customer ID: " + customerID);
         System.out.println("Name: " + name);
         System.out.println("Email: " + email);
         System.out.println("Phone Number: " + phoneNumber);
         System.out.println("CNIC: " + cnic);
-
     }
-    private void editCustomerDetails(String name, String email, String phoneNumber, String cnic){
-        this.name = name;
-        this.email = email;
-        this.phoneNumber = phoneNumber;
-        this.cnic = cnic;
-    }
-    private void addCustomer(string name, String email, String phoneNumber, String cnic, string address){
-        this.name = name;
-        this.email = email;
-        this.phoneNumber = phoneNumber;
-        this.cnic = cnic;
-    }
-
 }
+
 
