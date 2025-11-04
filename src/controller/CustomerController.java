@@ -3,6 +3,7 @@ package controller;
 import model.Customer;
 import java.util.ArrayList;
 
+
 public class CustomerController {
     // Step 1: make a list to hold all customers
     private ArrayList<Customer> customers = new ArrayList<>();
@@ -46,7 +47,11 @@ public class CustomerController {
             System.out.println(c.getName() + " - " + c.getEmail());
         }
     }
-}
 
+    // Getter for customers list
+    public ArrayList<Customer> getCustomers() {
+        return customers;
+    }
+}
 
 
