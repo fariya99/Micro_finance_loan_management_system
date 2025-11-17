@@ -270,6 +270,67 @@ public class MainAppGUI {
         gc.gridx=0; gc.gridy=4; form.add(new JLabel("Address:"), gc); gc.gridx=1; form.add(addrF, gc);
         gc.gridx=1; gc.gridy=5; form.add(addBtn, gc);
 
+        JButton editBtn = new JButton("Edit Selected");
+        editBtn.setBackground(new Color(255,165,0)); editBtn.setForeground(Color.WHITE);
+        JButton deleteBtn = new JButton("Delete Selected");
+        deleteBtn.setBackground(new Color(220,50,50)); deleteBtn.setForeground(Color.WHITE);
+
+        gc.gridx = 0; gc.gridy = 6; form.add(editBtn, gc);
+        gc.gridx = 1; gc.gridy = 6; form.add(deleteBtn, gc);
+        // ---------------- EDIT CUSTOMER ----------------
+editBtn.addActionListener(e -> {
+    int row = table.getSelectedRow();
+    if (row == -1) {
+        JOptionPane.showMessageDialog(frame, "Select a customer first", "Warning", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+    String id = (String) customerModel.getValueAt(row, 0);
+
+    String newName = JOptionPane.showInputDialog(frame, "Enter new name:", customerModel.getValueAt(row,1));
+    if (newName == null || newName.trim().isEmpty()) return;
+
+    String newCnic = JOptionPane.showInputDialog(frame, "Enter new CNIC (13 digits):", customerModel.getValueAt(row,2));
+    if (newCnic == null) return;
+
+    String newPhone = JOptionPane.showInputDialog(frame, "Enter new Phone (03xxxxxxxxx):", customerModel.getValueAt(row,3));
+    if (newPhone == null) return;
+
+    String newEmail = JOptionPane.showInputDialog(frame, "Enter new Email:", customerModel.getValueAt(row,4));
+    if (newEmail == null) return;
+
+    String newAddr = JOptionPane.showInputDialog(frame, "Enter new Address:", customerModel.getValueAt(row,5));
+    if (newAddr == null) return;
+
+    boolean success = store.editCustomer(id, newName.trim(), newCnic.trim(), newEmail.trim(), newAddr.trim(), newPhone.trim());
+    if (success) {
+        refreshCustomerTable();
+        JOptionPane.showMessageDialog(frame, "Customer updated successfully", "Success", JOptionPane.INFORMATION_MESSAGE);
+    } else {
+        JOptionPane.showMessageDialog(frame, "Failed to update. Check validation.", "Error", JOptionPane.ERROR_MESSAGE);
+    }
+});
+
+        // ---------------- DELETE CUSTOMER ----------------
+        deleteBtn.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(frame, "Select a customer first", "Warning", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String id = (String) customerModel.getValueAt(row, 0);
+        
+            int confirm = JOptionPane.showConfirmDialog(frame, "Are you sure you want to delete this customer?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                boolean success = store.deleteCustomer(id);
+                if (success) {
+                    refreshCustomerTable();
+                    JOptionPane.showMessageDialog(frame, "Customer deleted successfully", "Deleted", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(frame, "Failed to delete customer", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
         addBtn.addActionListener(e -> {
             String name = nameF.getText().trim();
             if (name.isEmpty()) { JOptionPane.showMessageDialog(frame, "Name required", "Validation", JOptionPane.WARNING_MESSAGE); return; }
