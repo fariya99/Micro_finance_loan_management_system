@@ -36,6 +36,48 @@ public class DataStore {
         customers.add(c);
         appendLine(CUSTOMERS_FILE, c.toCSV());
     }
+    public boolean deleteCustomer(String id) {
+    Customer c = findCustomerById(id);
+    if (c == null) return false;
+
+    customers.remove(c);
+    rewriteCustomersFile();
+    return true;
+    }
+
+    public boolean editCustomer(String id, String newName, String newCnic, String newEmail,
+                            String newAddress, String newPhone) {
+
+    Customer c = findCustomerById(id);
+    if (c == null) return false;
+
+    // VALIDATION
+    if (!Validator.isValidCNIC(newCnic)) {
+        System.out.println("Invalid CNIC (must be 13 digits)");
+        return false;
+    }
+    if (!Validator.isValidPhone(newPhone)) {
+        System.out.println("Invalid Phone (03xxxxxxxxx)");
+        return false;
+    }
+    if (!Validator.isValidEmail(newEmail)) {
+        System.out.println("Invalid Email format");
+        return false;
+    }
+
+    // UPDATE
+    c.setName(newName);
+    c.setCnic(newCnic);
+    c.setEmail(newEmail);
+    c.setAddress(newAddress);
+    c.setPhoneNumber(newPhone);
+
+    // REWRITE CSV
+    rewriteCustomersFile();
+
+    return true;
+    }
+    
 
     public void addLoan(Loan l) {
         loans.add(l);
@@ -85,6 +127,12 @@ public class DataStore {
 
     private void rewriteLoansFile() { writeAllLines(LOANS_FILE, loansToCSV()); }
     private void rewritePaymentsFile() { writeAllLines(PAYMENTS_FILE, paymentsToCSV()); }
+    private void rewriteCustomersFile() {
+    List<String> list = new ArrayList<>();
+    for (Customer c : customers) list.add(c.toCSV());
+    writeAllLines("customers.csv", list);
+}
+
 
     private void writeAllLines(String file, List<String> lines) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, false))) {
