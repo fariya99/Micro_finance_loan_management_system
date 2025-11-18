@@ -11,9 +11,16 @@ import java.util.List;
 import java.util.UUID;
 import java.io.*;
 import java.nio.file.*;
+import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipEntry;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
+import java.util.Map;
+import java.util.HashMap;
 
 
 public class MainAppGUI {
+
     private JFrame frame;
     private CardLayout cardLayout;
     private JPanel contentPanel;
@@ -21,17 +28,183 @@ public class MainAppGUI {
     private DataStore store;
     private ReportGenerator reports;
 
+
     // Table models
     private DefaultTableModel customerModel;
     private DefaultTableModel loanModel;
     private DefaultTableModel paymentModel;
+//    Admin
+private final Map<String, String> ADMIN_CREDENTIALS = new HashMap<>() {{
+    put("Maryam", "M33228");
+    put("Falah", "F33258");
+    put("Soha", "S33163");
+    put("Fariya", "F32699");
+}};
+
+
+    private boolean showLoginDialog() {
+        // --- UI CONSTANTS for Dark Theme ---
+        final Color BACKGROUND_DARK_BLUE = new Color(20, 25, 40); // Very dark, professional background
+        final Color CARD_BACKGROUND = new Color(30, 40, 60);       // Slightly lighter card background
+        final Color PRIMARY_BLUE = new Color(40, 150, 255);        // Vibrant Blue for accents
+        final Color TEXT_COLOR = Color.WHITE;
+        final Font TITLE_FONT = new Font("Segoe UI", Font.BOLD, 28);
+        final Font LABEL_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+        final Font INPUT_FONT = new Font("Segoe UI", Font.PLAIN, 18);
+
+        // Create dialog
+        JDialog dialog = new JDialog(frame, "Login", true);
+        dialog.setUndecorated(true);
+        dialog.setSize(Toolkit.getDefaultToolkit().getScreenSize());
+        dialog.setLocationRelativeTo(null);
+
+        // Main panel with dark background
+        JPanel mainPanel = new JPanel(new GridBagLayout());
+        mainPanel.setBackground(BACKGROUND_DARK_BLUE);
+        dialog.setContentPane(mainPanel);
+
+        // --- Login Card Panel ---
+        JPanel card = new JPanel(new GridBagLayout());
+        card.setPreferredSize(new Dimension(450, 400)); // Slightly wider and taller
+        card.setBackground(CARD_BACKGROUND);
+        // Minimalist Border: No hard lines, just a slight shadow effect (using EmptyBorder for padding)
+        card.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
+        card.setOpaque(true);
+
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(10, 0, 10, 0); // Spacing between components
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.gridx = 0; gc.gridy = 0; gc.gridwidth = 1;
+
+        // 1. Title (Large, Center-Aligned, High Contrast)
+        JLabel title = new JLabel("Welcome Admin", SwingConstants.CENTER);
+        title.setFont(TITLE_FONT);
+        title.setForeground(PRIMARY_BLUE);
+        gc.insets = new Insets(0, 0, 30, 0); // Extra space below the title
+        card.add(title, gc);
+
+        // Separator Line (Optional, but adds a clean touch)
+        gc.gridy++;
+        gc.insets = new Insets(0, 0, 20, 0);
+        card.add(new JSeparator(SwingConstants.HORIZONTAL), gc);
+
+        gc.insets = new Insets(10, 0, 5, 0); // Reset insets for form elements
+
+        // 2. Username Field
+        gc.gridy++;
+        JLabel nameLabel = new JLabel("USERNAME:");
+        nameLabel.setFont(LABEL_FONT);
+        nameLabel.setForeground(TEXT_COLOR);
+        card.add(nameLabel, gc);
+
+        gc.gridy++;
+        JTextField nameField = new JTextField(20);
+        nameField.setFont(INPUT_FONT);
+        // Flat, dark input field style
+        nameField.setBackground(BACKGROUND_DARK_BLUE);
+        nameField.setForeground(TEXT_COLOR);
+        nameField.setCaretColor(TEXT_COLOR); // Cursor color
+        nameField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PRIMARY_BLUE, 1), // Blue thin border
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        card.add(nameField, gc);
+
+        // 3. Admin ID Field (Password)
+        gc.gridy++;
+        gc.insets = new Insets(20, 0, 5, 0); // Extra space before password label
+        JLabel idLabel = new JLabel("ADMIN ID:");
+        idLabel.setFont(LABEL_FONT);
+        idLabel.setForeground(TEXT_COLOR);
+        card.add(idLabel, gc);
+
+        gc.gridy++;
+        JPasswordField idField = new JPasswordField(20);
+        idField.setFont(INPUT_FONT);
+        idField.setBackground(BACKGROUND_DARK_BLUE);
+        idField.setForeground(TEXT_COLOR);
+        idField.setCaretColor(TEXT_COLOR);
+        idField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(PRIMARY_BLUE, 1),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        card.add(idField, gc);
+
+        // 4. Buttons
+        gc.gridy++;
+        gc.insets = new Insets(40, 0, 0, 0); // Large space before buttons
+
+        JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0)); // Equal size buttons with space
+        buttons.setBackground(CARD_BACKGROUND);
+
+        JButton loginBtn = new JButton("SIGN IN");
+        loginBtn.setBackground(PRIMARY_BLUE);
+        loginBtn.setForeground(TEXT_COLOR);
+        loginBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        loginBtn.setFocusPainted(false);
+        loginBtn.setPreferredSize(new Dimension(150, 45)); // Larger button for focus
+
+        JButton cancelBtn = new JButton("EXIT");
+        cancelBtn.setBackground(new Color(100, 100, 100)); // Darker gray for Exit
+        cancelBtn.setForeground(TEXT_COLOR);
+        cancelBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        cancelBtn.setFocusPainted(false);
+        cancelBtn.setPreferredSize(new Dimension(150, 45));
+
+        buttons.add(loginBtn);
+        buttons.add(cancelBtn);
+        card.add(buttons, gc);
+
+        // Add card to center of main panel
+        mainPanel.add(card, new GridBagConstraints());
+
+        final boolean[] success = {false};
+
+        // Login action
+        loginBtn.addActionListener(e -> {
+            String enteredName = nameField.getText().trim(); // User input (e.g., "maryam")
+            String enteredId = new String(idField.getPassword()).trim(); // User ID/Password
+
+            String storedId = null;
+
+            // --- NEW LOGIC: Search the map for a case-insensitive match ---
+            for (Map.Entry<String, String> entry : ADMIN_CREDENTIALS.entrySet()) {
+                // Check if the key (e.g., "Maryam") matches the entered name (e.g., "maryam")
+                if (entry.getKey().equalsIgnoreCase(enteredName)) {
+                    storedId = entry.getValue(); // Found the correct stored ID ("M33228")
+                    break; // Stop searching once found
+                }
+            }
+
+            // Check if we found a username AND if the entered ID matches the stored ID
+            if (storedId != null && storedId.equals(enteredId)) {
+                success[0] = true;
+                dialog.dispose();
+            }
+            // --- END NEW LOGIC ---
+
+            else {
+                JOptionPane.showMessageDialog(dialog, "Invalid Username or Admin ID.", "Authentication Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        cancelBtn.addActionListener(e -> System.exit(0));
+
+        dialog.setVisible(true);
+        return success[0];
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
-            new MainAppGUI().init();
+            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {} //for window
+            //try { UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel"); } catch (Exception ignored) {} //for mac
+
+            MainAppGUI app = new MainAppGUI();
+            if (app.showLoginDialog()) { // show login first
+                app.init(); // only initialize main GUI if login successful
+            }
         });
     }
+
 
     private void init() {
         store = new DataStore();
@@ -108,7 +281,6 @@ public class MainAppGUI {
             case "Loans": showCard("loans"); break;
             case "Payments": showCard("payments"); break;
             case "Reports": showCard("reports"); break;
-           
             case "Exit": System.exit(0); break;
         }
     }
@@ -235,24 +407,38 @@ public class MainAppGUI {
             g.setColor(Color.BLACK); g.drawString("Education ("+e+")", x, baseline+20);
         }
     }
-
+    // -------- Customers Panel --------
     private JPanel buildCustomersPanel() {
         JPanel p = new JPanel(new BorderLayout());
-        p.setBorder(new EmptyBorder(12,12,12,12));
+        p.setBorder(new EmptyBorder(12,15,12,15));
         JLabel heading = new JLabel("Customers");
         heading.setFont(new Font("Segoe UI", Font.BOLD, 20));
         p.add(heading, BorderLayout.NORTH);
 
-        String[] cols = {"ID", "Name", "CNIC", "Phone", "Email", "Address"};
+        // Table setup
+        String[] cols = {"ID", "Name", "CNIC", "Phone", "Email", "Address", "Actions"};
         customerModel = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 6; // Only Actions column editable
+            }
         };
         JTable table = new JTable(customerModel);
+        table.setRowHeight(30); // Ensure buttons fit
+        table.getColumn("Actions").setPreferredWidth(180);
+
+        // Actions column renderer/editor
+        table.getColumn("Actions").setCellRenderer(new ActionCellRenderer());
+        table.getColumn("Actions").setCellEditor(new ActionCellEditor(table));
+
         p.add(new JScrollPane(table), BorderLayout.CENTER);
 
+        // Form to add customer (unchanged)
         JPanel form = new JPanel(new GridBagLayout());
         form.setBorder(new EmptyBorder(0,12,0,0));
-        GridBagConstraints gc = new GridBagConstraints(); gc.insets = new Insets(6,6,6,6); gc.fill = GridBagConstraints.HORIZONTAL;
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6,6,6,6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
 
         JTextField nameF = new JTextField(15);
         JTextField cnicF = new JTextField(15);
@@ -260,7 +446,8 @@ public class MainAppGUI {
         JTextField emailF = new JTextField(15);
         JTextField addrF = new JTextField(15);
         JButton addBtn = new JButton("Add Customer");
-        addBtn.setBackground(new Color(70,160,120)); addBtn.setForeground(Color.WHITE);
+        addBtn.setBackground(new Color(70,160,120));
+        addBtn.setForeground(Color.WHITE);
 
         gc.gridx=0; gc.gridy=0; form.add(new JLabel("Name:"), gc); gc.gridx=1; form.add(nameF, gc);
         gc.gridx=0; gc.gridy=1; form.add(new JLabel("CNIC:"), gc); gc.gridx=1; form.add(cnicF, gc);
@@ -269,76 +456,21 @@ public class MainAppGUI {
         gc.gridx=0; gc.gridy=4; form.add(new JLabel("Address:"), gc); gc.gridx=1; form.add(addrF, gc);
         gc.gridx=1; gc.gridy=5; form.add(addBtn, gc);
 
-        JButton editBtn = new JButton("Edit Selected");
-        editBtn.setBackground(new Color(255,165,0)); editBtn.setForeground(Color.WHITE);
-        JButton deleteBtn = new JButton("Delete Selected");
-        deleteBtn.setBackground(new Color(220,50,50)); deleteBtn.setForeground(Color.WHITE);
-
-        gc.gridx = 0; gc.gridy = 6; form.add(editBtn, gc);
-        gc.gridx = 1; gc.gridy = 6; form.add(deleteBtn, gc);
-        // ---------------- EDIT CUSTOMER ----------------
-editBtn.addActionListener(e -> {
-    int row = table.getSelectedRow();
-    if (row == -1) {
-        JOptionPane.showMessageDialog(frame, "Select a customer first", "Warning", JOptionPane.WARNING_MESSAGE);
-        return;
-    }
-    String id = (String) customerModel.getValueAt(row, 0);
-
-    String newName = JOptionPane.showInputDialog(frame, "Enter new name:", customerModel.getValueAt(row,1));
-    if (newName == null || newName.trim().isEmpty()) return;
-
-    String newCnic = JOptionPane.showInputDialog(frame, "Enter new CNIC (13 digits):", customerModel.getValueAt(row,2));
-    if (newCnic == null) return;
-
-    String newPhone = JOptionPane.showInputDialog(frame, "Enter new Phone (03xxxxxxxxx):", customerModel.getValueAt(row,3));
-    if (newPhone == null) return;
-
-    String newEmail = JOptionPane.showInputDialog(frame, "Enter new Email:", customerModel.getValueAt(row,4));
-    if (newEmail == null) return;
-
-    String newAddr = JOptionPane.showInputDialog(frame, "Enter new Address:", customerModel.getValueAt(row,5));
-    if (newAddr == null) return;
-
-    boolean success = store.editCustomer(id, newName.trim(), newCnic.trim(), newEmail.trim(), newAddr.trim(), newPhone.trim());
-    if (success) {
-        refreshCustomerTable();
-        JOptionPane.showMessageDialog(frame, "Customer updated successfully", "Success", JOptionPane.INFORMATION_MESSAGE);
-    } else {
-        JOptionPane.showMessageDialog(frame, "Failed to update. Check validation.", "Error", JOptionPane.ERROR_MESSAGE);
-    }
-});
-
-        // ---------------- DELETE CUSTOMER ----------------
-        deleteBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(frame, "Select a customer first", "Warning", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            String id = (String) customerModel.getValueAt(row, 0);
-        
-            int confirm = JOptionPane.showConfirmDialog(frame, "Are you sure you want to delete this customer?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                boolean success = store.deleteCustomer(id);
-                if (success) {
-                    refreshCustomerTable();
-                    JOptionPane.showMessageDialog(frame, "Customer deleted successfully", "Deleted", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(frame, "Failed to delete customer", "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
-
         addBtn.addActionListener(e -> {
             String name = nameF.getText().trim();
-            if (name.isEmpty()) { JOptionPane.showMessageDialog(frame, "Name required", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (name.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Name required", "Validation", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             String id = generateId("C");
             Customer cst = new Customer(id, name, cnicF.getText().trim(), emailF.getText().trim(), addrF.getText().trim(), phoneF.getText().trim());
-            store.addCustomer(cst);
-            refreshCustomerTable();
-            nameF.setText(""); cnicF.setText(""); phoneF.setText(""); emailF.setText(""); addrF.setText("");
-            JOptionPane.showMessageDialog(frame, "Customer added: " + id, "Success", JOptionPane.INFORMATION_MESSAGE);
+            if(store.addCustomer(cst)) {
+                refreshCustomerTable();
+                nameF.setText(""); cnicF.setText(""); phoneF.setText(""); emailF.setText(""); addrF.setText("");
+                JOptionPane.showMessageDialog(frame, "Customer added: " + id, "Success", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(frame, "Invalid data! Check CNIC, Phone, or Email.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
         p.add(form, BorderLayout.EAST);
@@ -346,14 +478,136 @@ editBtn.addActionListener(e -> {
         return p;
     }
 
+// -------------------- Renderer & Editor --------------------
+class ActionCellRenderer extends JPanel implements TableCellRenderer {
+    private JButton editBtn = new JButton("Edit");
+    private JButton delBtn = new JButton("Delete");
+
+    public ActionCellRenderer() {
+        setLayout(new GridLayout(1, 2, 5, 0)); // Grid ensures both buttons are visible
+        setOpaque(true);
+
+        editBtn.setMargin(new Insets(2, 2, 2, 2));
+        delBtn.setMargin(new Insets(2, 2, 2, 2));
+
+        editBtn.setBackground(new Color(107, 158, 188));
+        editBtn.setForeground(Color.WHITE);
+
+
+        delBtn.setBackground(new Color(232, 76, 76));
+        delBtn.setForeground(Color.WHITE);
+
+
+        add(editBtn);
+        add(delBtn);
+    }
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value,
+                                                   boolean isSelected, boolean hasFocus, int row, int column) {
+        if(isSelected) setBackground(table.getSelectionBackground());
+        else setBackground(table.getBackground());
+        return this;
+    }
+}
+
+    class ActionCellEditor extends AbstractCellEditor implements TableCellEditor {
+        private JPanel panel = new JPanel();
+        private JButton editBtn = new JButton("Edit");
+        private JButton delBtn = new JButton("Delete");
+        private int currentRow;
+
+        public ActionCellEditor(JTable table) {
+            panel.setLayout(new GridLayout(1, 2, 5, 0));
+            panel.setOpaque(true);
+
+            editBtn.setMargin(new Insets(2, 2, 2, 2));
+            delBtn.setMargin(new Insets(2, 2, 2, 2));
+
+            editBtn.setBackground(new Color(107, 158, 188));
+            editBtn.setForeground(Color.WHITE);
+
+            delBtn.setBackground(new Color(232, 76, 76));
+            delBtn.setForeground(Color.WHITE);
+
+            panel.add(editBtn);
+            panel.add(delBtn);
+
+            editBtn.addActionListener(e -> {
+                editCustomerRow(currentRow);
+                fireEditingStopped();
+            });
+            delBtn.addActionListener(e -> {
+                deleteCustomerRow(currentRow);
+                fireEditingStopped();
+            });
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            currentRow = row;
+            return panel;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return null;
+        }
+    }
+
+
     private void refreshCustomerTable() {
         customerModel.setRowCount(0);
-        for (Customer c : store.getCustomers()) {
-            customerModel.addRow(new Object[] {
-                    c.getCustomerId(), c.getName(), c.getCnic(), c.getPhoneNumber(), c.getEmail(), c.getAddress()
+        for(Customer c : store.getCustomers()) {
+            customerModel.addRow(new Object[]{
+                    c.getCustomerId(), c.getName(), c.getCnic(), c.getPhoneNumber(), c.getEmail(), c.getAddress(), ""
             });
         }
     }
+
+    private void editCustomerRow(int row) {
+        if(row<0 || row>=customerModel.getRowCount()) return;
+        String id = (String) customerModel.getValueAt(row, 0);
+        Customer c = store.findCustomerById(id);
+        if(c==null) return;
+
+        JTextField nameF = new JTextField(c.getName());
+        JTextField cnicF = new JTextField(c.getCnic());
+        JTextField phoneF = new JTextField(c.getPhoneNumber());
+        JTextField emailF = new JTextField(c.getEmail());
+        JTextField addrF = new JTextField(c.getAddress());
+
+        JPanel panel = new JPanel(new GridLayout(0,2));
+        panel.add(new JLabel("Name:")); panel.add(nameF);
+        panel.add(new JLabel("CNIC:")); panel.add(cnicF);
+        panel.add(new JLabel("Phone:")); panel.add(phoneF);
+        panel.add(new JLabel("Email:")); panel.add(emailF);
+        panel.add(new JLabel("Address:")); panel.add(addrF);
+
+        int result = JOptionPane.showConfirmDialog(frame, panel, "Edit Customer " + id, JOptionPane.OK_CANCEL_OPTION);
+        if(result == JOptionPane.OK_OPTION) {
+            if(store.editCustomer(id, nameF.getText(), cnicF.getText(), emailF.getText(), addrF.getText(), phoneF.getText())) {
+                refreshCustomerTable();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Invalid data! Check CNIC, Phone, or Email.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void deleteCustomerRow(int row) {
+        if(row<0 || row>=customerModel.getRowCount()) return;
+        String id = (String) customerModel.getValueAt(row, 0);
+        int confirm = JOptionPane.showConfirmDialog(frame, "Delete customer " + id + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+        if(confirm == JOptionPane.YES_OPTION) {
+            if(store.deleteCustomer(id)) {
+                refreshCustomerTable();
+            } else {
+                JOptionPane.showMessageDialog(frame, "Could not delete customer!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+
 
     private JPanel buildLoansPanel() {
         JPanel p = new JPanel(new BorderLayout());
@@ -538,8 +792,10 @@ editBtn.addActionListener(e -> {
         return p;
     }
 
-  
+
     private String generateId(String prefix) {
         return prefix + UUID.randomUUID().toString().replace("-", "").substring(0,8).toUpperCase();
     }
+
+
 }
