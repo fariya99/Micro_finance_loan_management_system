@@ -11,8 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import java.io.*;
 import java.nio.file.*;
-import java.util.zip.ZipOutputStream;
-import java.util.zip.ZipEntry;
+
 
 public class MainAppGUI {
     private JFrame frame;
@@ -109,7 +108,7 @@ public class MainAppGUI {
             case "Loans": showCard("loans"); break;
             case "Payments": showCard("payments"); break;
             case "Reports": showCard("reports"); break;
-            case "Export CSV (zip)": exportCsvZip(); break;
+           
             case "Exit": System.exit(0); break;
         }
     }
@@ -539,29 +538,7 @@ editBtn.addActionListener(e -> {
         return p;
     }
 
-    private void exportCsvZip() {
-        try {
-            String zipName = "export_" + System.currentTimeMillis() + ".zip";
-            try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipName))) {
-                addFileToZip(zos, "customers.csv");
-                addFileToZip(zos, "loans.csv");
-                addFileToZip(zos, "payments.csv");
-            }
-            JOptionPane.showMessageDialog(frame, "Exported CSV files to: " + Paths.get(zipName).toAbsolutePath(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(frame, "Export failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void addFileToZip(ZipOutputStream zos, String filename) throws IOException {
-        Path p = Paths.get(filename);
-        if (!Files.exists(p)) return;
-        zos.putNextEntry(new ZipEntry(filename));
-        Files.copy(p, zos);
-        zos.closeEntry();
-    }
-
+  
     private String generateId(String prefix) {
         return prefix + UUID.randomUUID().toString().replace("-", "").substring(0,8).toUpperCase();
     }
