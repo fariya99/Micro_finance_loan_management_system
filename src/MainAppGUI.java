@@ -260,7 +260,7 @@ private final Map<String, String> ADMIN_CREDENTIALS = new HashMap<>() {{
         buttons.setLayout(new GridLayout(0,1,6,6));
         buttons.setOpaque(false);
 
-        String[] names = {"Dashboard", "Customers", "Loans", "Payments", "Reports", "Export CSV (zip)", "Exit"};
+        String[] names = {"Dashboard", "Customers", "Loans", "Payments", "Reports", "Exit"};
         for (String n : names) {
             JButton b = new JButton(n);
             b.setFocusPainted(false);
