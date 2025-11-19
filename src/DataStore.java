@@ -1,8 +1,8 @@
 import java.io.*;
 import java.nio.file.*;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class DataStore {
     private static final String CUSTOMERS_FILE = "customers.csv";
@@ -10,7 +10,11 @@ public class DataStore {
     private static final String PAYMENTS_FILE = "payments.csv";
 
     private List<Customer> customers = new ArrayList<>();
+    private Map<String, Customer> customerMap = new HashMap<>();
+
     private List<Loan> loans = new ArrayList<>();
+    private Map<String, Loan> loanMap = new HashMap<>();
+
     private List<Payment> payments = new ArrayList<>();
 
     public DataStore() {
@@ -28,59 +32,53 @@ public class DataStore {
         }
     }
 
-    public List<Customer> getCustomers() { return customers; }
-    public List<Loan> getLoans() { return loans; }
-    public List<Payment> getPayments() { return payments; }
+    public List<Customer> getCustomers() { return new ArrayList<>(customers); }
+    public List<Loan> getLoans() { return new ArrayList<>(loans); }
+    public List<Payment> getPayments() { return new ArrayList<>(payments); }
 
-    public void addCustomer(Customer c) {
+    public boolean addCustomer(Customer c) {
+        if (c.getName().isEmpty() || c.getCnic().isEmpty() || c.getPhoneNumber().isEmpty() ||
+                !Validator.isValidCNIC(c.getCnic()) || !Validator.isValidPhone(c.getPhoneNumber()) ||
+                !Validator.isValidEmail(c.getEmail())) {
+            return false;
+        }
         customers.add(c);
+        customerMap.put(c.getCustomerId(), c);
         appendLine(CUSTOMERS_FILE, c.toCSV());
+        return true;
     }
-    public boolean deleteCustomer(String id) {
-    Customer c = findCustomerById(id);
-    if (c == null) return false;
 
-    customers.remove(c);
-    rewriteCustomersFile();
-    return true;
+    public boolean deleteCustomer(String id) {
+        Customer c = customerMap.remove(id);
+        if (c == null) return false;
+        customers.remove(c);
+        rewriteCustomersFile();
+        return true;
     }
 
     public boolean editCustomer(String id, String newName, String newCnic, String newEmail,
-                            String newAddress, String newPhone) {
+                                String newAddress, String newPhone) {
 
-    Customer c = findCustomerById(id);
-    if (c == null) return false;
+        Customer c = customerMap.get(id);
+        if (c == null) return false;
 
-    // VALIDATION
-    if (!Validator.isValidCNIC(newCnic)) {
-        System.out.println("Invalid CNIC (must be 13 digits)");
-        return false;
+        if (!Validator.isValidCNIC(newCnic) || !Validator.isValidPhone(newPhone) || !Validator.isValidEmail(newEmail)) {
+            return false;
+        }
+
+        c.setName(newName);
+        c.setCnic(newCnic);
+        c.setEmail(newEmail);
+        c.setAddress(newAddress);
+        c.setPhoneNumber(newPhone);
+
+        rewriteCustomersFile();
+        return true;
     }
-    if (!Validator.isValidPhone(newPhone)) {
-        System.out.println("Invalid Phone (03xxxxxxxxx)");
-        return false;
-    }
-    if (!Validator.isValidEmail(newEmail)) {
-        System.out.println("Invalid Email format");
-        return false;
-    }
-
-    // UPDATE
-    c.setName(newName);
-    c.setCnic(newCnic);
-    c.setEmail(newEmail);
-    c.setAddress(newAddress);
-    c.setPhoneNumber(newPhone);
-
-    // REWRITE CSV
-    rewriteCustomersFile();
-
-    return true;
-    }
-    
 
     public void addLoan(Loan l) {
         loans.add(l);
+        loanMap.put(l.getLoanId(), l);
         appendLine(LOANS_FILE, l.toCSV());
     }
 
@@ -91,7 +89,7 @@ public class DataStore {
 
     public void recordPaymentAndUpdateLoan(Payment p) {
         addPayment(p);
-        Loan loan = findLoanById(p.getLoanId());
+        Loan loan = loanMap.get(p.getLoanId());
         if (loan != null) {
             loan.makePayment(p.getAmountPaid());
             loan.checkOverdue(LocalDate.now());
@@ -100,20 +98,36 @@ public class DataStore {
         }
     }
 
-    public Customer findCustomerById(String id) {
-        for (Customer c : customers) if (c.getCustomerId().equals(id)) return c;
-        return null;
-    }
-
-    public Loan findLoanById(String id) {
-        for (Loan l : loans) if (l.getLoanId().equals(id)) return l;
-        return null;
-    }
+    public Customer findCustomerById(String id) { return customerMap.get(id); }
+    public Loan findLoanById(String id) { return loanMap.get(id); }
 
     public List<Payment> getPaymentsForLoan(String loanId) {
-        List<Payment> list = new ArrayList<>();
-        for (Payment p : payments) if (p.getLoanId().equals(loanId)) list.add(p);
-        return list;
+        return payments.stream()
+                .filter(p -> p.getLoanId().equals(loanId))
+                .collect(Collectors.toList());
+    }
+
+    public double getTotalPaidForLoan(String loanId) {
+        return getPaymentsForLoan(loanId).stream()
+                .mapToDouble(Payment::getAmountPaid)
+                .sum();
+    }
+
+    public LocalDate getLastPaymentDateForLoan(String loanId) {
+        return getPaymentsForLoan(loanId).stream()
+                .map(Payment::getDate)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+    }
+
+    public boolean isInstallmentLoan(String loanId) {
+        Loan l = loanMap.get(loanId);
+        return l != null && l.isInstallment();
+    }
+
+    public double getEMI(String loanId) {
+        Loan l = loanMap.get(loanId);
+        return l != null ? l.getEmi() : 0.0;
     }
 
     private void appendLine(String file, String line) {
@@ -127,12 +141,7 @@ public class DataStore {
 
     private void rewriteLoansFile() { writeAllLines(LOANS_FILE, loansToCSV()); }
     private void rewritePaymentsFile() { writeAllLines(PAYMENTS_FILE, paymentsToCSV()); }
-    private void rewriteCustomersFile() {
-    List<String> list = new ArrayList<>();
-    for (Customer c : customers) list.add(c.toCSV());
-    writeAllLines("customers.csv", list);
-}
-
+    private void rewriteCustomersFile() { writeAllLines(CUSTOMERS_FILE, customersToCSV()); }
 
     private void writeAllLines(String file, List<String> lines) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, false))) {
@@ -146,14 +155,15 @@ public class DataStore {
     }
 
     private List<String> loansToCSV() {
-        List<String> out = new ArrayList<>();
-        for (Loan l : loans) out.add(l.toCSV());
-        return out;
+        return loans.stream().map(Loan::toCSV).collect(Collectors.toList());
     }
+
     private List<String> paymentsToCSV() {
-        List<String> out = new ArrayList<>();
-        for (Payment p : payments) out.add(p.toCSV());
-        return out;
+        return payments.stream().map(Payment::toCSV).collect(Collectors.toList());
+    }
+
+    private List<String> customersToCSV() {
+        return customers.stream().map(Customer::toCSV).collect(Collectors.toList());
     }
 
     private void loadAll() {
@@ -164,12 +174,16 @@ public class DataStore {
 
     private void loadCustomers() {
         customers.clear();
+        customerMap.clear();
         try (BufferedReader br = new BufferedReader(new FileReader(CUSTOMERS_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
                 Customer c = Customer.fromCSV(line);
-                if (c != null) customers.add(c);
+                if (c != null) {
+                    customers.add(c);
+                    customerMap.put(c.getCustomerId(), c);
+                }
             }
         } catch (IOException e) {
             System.err.println("Error loading customers: " + e.getMessage());
@@ -178,12 +192,16 @@ public class DataStore {
 
     private void loadLoans() {
         loans.clear();
+        loanMap.clear();
         try (BufferedReader br = new BufferedReader(new FileReader(LOANS_FILE))) {
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
                 Loan l = Loan.fromCSV(line);
-                if (l != null) loans.add(l);
+                if (l != null) {
+                    loans.add(l);
+                    loanMap.put(l.getLoanId(), l);
+                }
             }
         } catch (IOException e) {
             System.err.println("Error loading loans: " + e.getMessage());
