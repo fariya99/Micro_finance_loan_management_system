@@ -612,54 +612,91 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
     private JPanel buildLoansPanel() {
         JPanel p = new JPanel(new BorderLayout());
         p.setBorder(new EmptyBorder(12,12,12,12));
+
         JLabel heading = new JLabel("Loans");
         heading.setFont(new Font("Segoe UI", Font.BOLD, 20));
         p.add(heading, BorderLayout.NORTH);
 
-        String[] cols = {"Loan ID","Type","Customer ID","Principal","Interest","Duration(m)","Balance","Issue Date","Due Date","Status"};
-        loanModel = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+        // --- Table columns ---
+        String[] loanCols = {
+                "Loan ID","Type","Customer ID","Principal","Interest",
+                "Duration(m)","Remaining Balance","Paid Amount","Last Payment Date",
+                "Installments","EMI","Issue Date","Due Date","Status"
+        };
+        loanModel = new DefaultTableModel(loanCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
         };
         JTable table = new JTable(loanModel);
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
 
+        // Split pane for table and form
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        split.setResizeWeight(0.7);
+        split.setLeftComponent(new JScrollPane(table));
+
+        // --- Issue Loan Form ---
         JPanel form = new JPanel(new GridBagLayout());
         form.setBorder(new EmptyBorder(0,12,0,0));
-        GridBagConstraints gc = new GridBagConstraints(); gc.insets = new Insets(6,6,6,6); gc.fill = GridBagConstraints.HORIZONTAL;
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6,6,6,6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
 
         JTextField custIdF = new JTextField(12);
         JTextField amountF = new JTextField(12);
         JTextField durF = new JTextField(12);
         JComboBox<String> typeBox = new JComboBox<>(new String[] {"PERSONAL","BUSINESS","EDUCATION"});
+        JCheckBox installmentBox = new JCheckBox("Installment Loan?");
         JButton issueBtn = new JButton("Issue Loan");
-        issueBtn.setBackground(new Color(70,130,180)); issueBtn.setForeground(Color.WHITE);
+        issueBtn.setBackground(new Color(70,130,180));
+        issueBtn.setForeground(Color.WHITE);
 
         gc.gridx=0; gc.gridy=0; form.add(new JLabel("Customer ID:"), gc); gc.gridx=1; form.add(custIdF, gc);
         gc.gridx=0; gc.gridy=1; form.add(new JLabel("Amount:"), gc); gc.gridx=1; form.add(amountF, gc);
         gc.gridx=0; gc.gridy=2; form.add(new JLabel("Duration (months):"), gc); gc.gridx=1; form.add(durF, gc);
         gc.gridx=0; gc.gridy=3; form.add(new JLabel("Type:"), gc); gc.gridx=1; form.add(typeBox, gc);
-        gc.gridx=1; gc.gridy=4; form.add(issueBtn, gc);
+        gc.gridx=1; gc.gridy=4; form.add(installmentBox, gc);
+        gc.gridx=1; gc.gridy=5; form.add(issueBtn, gc);
 
         issueBtn.addActionListener(e -> {
             String cid = custIdF.getText().trim();
             Customer c = store.findCustomerById(cid);
-            if (c == null) { JOptionPane.showMessageDialog(frame, "Customer not found", "Validation", JOptionPane.WARNING_MESSAGE); return; }
-            double amt; int months;
-            try { amt = Double.parseDouble(amountF.getText().trim()); } catch (Exception ex) { JOptionPane.showMessageDialog(frame, "Invalid amount", "Validation", JOptionPane.WARNING_MESSAGE); return; }
-            try { months = Integer.parseInt(durF.getText().trim()); } catch (Exception ex) { JOptionPane.showMessageDialog(frame, "Invalid months", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (c == null) {
+                JOptionPane.showMessageDialog(frame, "Customer not found", "Validation", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            double amt;
+            int months;
+            try { amt = Double.parseDouble(amountF.getText().trim()); }
+            catch (NumberFormatException ex) { JOptionPane.showMessageDialog(frame, "Invalid amount", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (amt <= 0) { JOptionPane.showMessageDialog(frame, "Amount must be positive", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+
+            try { months = Integer.parseInt(durF.getText().trim()); }
+            catch (NumberFormatException ex) { JOptionPane.showMessageDialog(frame, "Invalid months", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (months <= 0) { JOptionPane.showMessageDialog(frame, "Duration must be positive", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+
+            boolean installment = installmentBox.isSelected();
             String type = (String) typeBox.getSelectedItem();
             String id = generateId("L");
             Loan loan;
-            if ("PERSONAL".equals(type)) loan = new PersonalLoan(id, cid, amt, months, LocalDate.now());
-            else if ("BUSINESS".equals(type)) loan = new BusinessLoan(id, cid, amt, months, LocalDate.now());
-            else loan = new EducationLoan(id, cid, amt, months, LocalDate.now());
+            if ("PERSONAL".equals(type))
+                loan = new PersonalLoan(id, cid, amt, months, LocalDate.now(), installment);
+            else if ("BUSINESS".equals(type))
+                loan = new BusinessLoan(id, cid, amt, months, LocalDate.now(), installment);
+            else
+                loan = new EducationLoan(id, cid, amt, months, LocalDate.now(), installment);
+
             store.addLoan(loan);
             refreshLoanTable();
-            JOptionPane.showMessageDialog(frame, "Loan issued: " + id + "\nTotal payable (approx): " + String.format("%.2f", loan.getBalance()), "Success", JOptionPane.INFORMATION_MESSAGE);
-            custIdF.setText(""); amountF.setText(""); durF.setText("");
+            JOptionPane.showMessageDialog(frame, "Loan issued: " + id + "\nTotal payable (approx): "
+                    + String.format("%.2f", loan.getBalance()), "Success", JOptionPane.INFORMATION_MESSAGE);
+
+            custIdF.setText(""); amountF.setText(""); durF.setText(""); installmentBox.setSelected(false);
         });
 
-        p.add(form, BorderLayout.EAST);
+        split.setRightComponent(form);
+        p.add(split, BorderLayout.CENTER);
+
         refreshLoanTable();
         return p;
     }
@@ -668,12 +705,34 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
         loanModel.setRowCount(0);
         for (Loan l : store.getLoans()) {
             double interest = l.calculateTotalPayable() - l.getPrincipal();
+            double paid = store.getTotalPaidForLoan(l.getLoanId());
+            LocalDate lastPaid = store.getLastPaymentDateForLoan(l.getLoanId());
+            String lastPaidStr = lastPaid != null ? lastPaid.toString() : "-";
+
+            String installments = "No"; // default
+            String emiStr = "-";
+
+            if (l instanceof PersonalLoan pl && pl.isInstallment()) {
+                installments = String.valueOf(pl.getDurationMonths());
+                emiStr = String.format("%.2f", pl.getEmi());
+            } else if (l instanceof BusinessLoan bl && bl.isInstallment()) {
+                installments = String.valueOf(bl.getDurationMonths());
+                emiStr = String.format("%.2f", bl.getEmi());
+            } else if (l instanceof EducationLoan el && el.isInstallment()) {
+                installments = String.valueOf(el.getDurationMonths());
+                emiStr = String.format("%.2f", el.getEmi());
+            }
+
             loanModel.addRow(new Object[] {
                     l.getLoanId(), l.getLoanType(), l.getCustomerId(),
                     String.format("%.2f", l.getPrincipal()),
                     String.format("%.2f", interest),
                     l.getDurationMonths(),
                     String.format("%.2f", l.getBalance()),
+                    String.format("%.2f", paid),
+                    lastPaidStr,
+                    installments,
+                    emiStr,
                     l.getIssueDate(),
                     l.getDueDate(),
                     l.getStatus()
@@ -684,6 +743,7 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
     private JPanel buildPaymentsPanel() {
         JPanel p = new JPanel(new BorderLayout());
         p.setBorder(new EmptyBorder(12,12,12,12));
+
         JLabel heading = new JLabel("Payments");
         heading.setFont(new Font("Segoe UI", Font.BOLD, 20));
         p.add(heading, BorderLayout.NORTH);
@@ -697,12 +757,15 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
 
         JPanel form = new JPanel(new GridBagLayout());
         form.setBorder(new EmptyBorder(0,12,0,0));
-        GridBagConstraints gc = new GridBagConstraints(); gc.insets = new Insets(6,6,6,6); gc.fill = GridBagConstraints.HORIZONTAL;
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(6,6,6,6);
+        gc.fill = GridBagConstraints.HORIZONTAL;
 
         JTextField loanField = new JTextField(12);
         JTextField amtField = new JTextField(12);
         JButton recBtn = new JButton("Record Payment");
-        recBtn.setBackground(new Color(255,140,0)); recBtn.setForeground(Color.WHITE);
+        recBtn.setBackground(new Color(255,140,0));
+        recBtn.setForeground(Color.WHITE);
 
         gc.gridx=0; gc.gridy=0; form.add(new JLabel("Loan ID:"), gc); gc.gridx=1; form.add(loanField, gc);
         gc.gridx=0; gc.gridy=1; form.add(new JLabel("Amount:"), gc); gc.gridx=1; form.add(amtField, gc);
@@ -711,19 +774,34 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
         recBtn.addActionListener(e -> {
             String loanId = loanField.getText().trim();
             Loan loan = store.findLoanById(loanId);
-            if (loan == null) { JOptionPane.showMessageDialog(frame, "Loan not found.", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (loan == null) {
+                JOptionPane.showMessageDialog(frame, "Loan not found.", "Validation", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             double amt;
-            try { amt = Double.parseDouble(amtField.getText().trim()); } catch (Exception ex) { JOptionPane.showMessageDialog(frame, "Invalid amount.", "Validation", JOptionPane.WARNING_MESSAGE); return; }
-            if (amt <= 0) { JOptionPane.showMessageDialog(frame, "Amount must be positive.", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            try { amt = Double.parseDouble(amtField.getText().trim()); }
+            catch (Exception ex) { JOptionPane.showMessageDialog(frame, "Invalid amount.", "Validation", JOptionPane.WARNING_MESSAGE); return; }
+            if (amt <= 0) {
+                JOptionPane.showMessageDialog(frame, "Amount must be positive.", "Validation", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // Record the payment
             String pid = generateId("P");
             Payment pm = new Payment(pid, loanId, amt, LocalDate.now());
             store.recordPaymentAndUpdateLoan(pm);
-            refreshPaymentTable();
-            refreshLoanTable();
+
+            // --- REFRESH TABLES ---
+            refreshPaymentTable();   // update payment table
+            refreshLoanTable();      // update loan table to show new balance, paid amount, last payment
+
             JOptionPane.showMessageDialog(frame, "Payment recorded: " + pid, "Success", JOptionPane.INFORMATION_MESSAGE);
+
             loanField.setText(""); amtField.setText("");
         });
 
+        // Bottom panel to view payments or refresh all
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JTextField viewLoan = new JTextField(12);
         viewLoan.setToolTipText("Loan ID to view payments");
@@ -735,14 +813,20 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
             if (lid.isEmpty()) { JOptionPane.showMessageDialog(frame, "Enter loan ID.", "Validation", JOptionPane.WARNING_MESSAGE); return; }
             List<Payment> list = store.getPaymentsForLoan(lid);
             paymentModel.setRowCount(0);
-            for (Payment pay : list) paymentModel.addRow(new Object[] { pay.getPaymentId(), pay.getLoanId(), String.format("%.2f", pay.getAmountPaid()), pay.getDate() });
+            for (Payment pay : list)
+                paymentModel.addRow(new Object[]{pay.getPaymentId(), pay.getLoanId(), String.format("%.2f", pay.getAmountPaid()), pay.getDate()});
         });
-        refreshBtn.addActionListener(e -> { refreshPaymentTable(); refreshLoanTable(); });
+
+        refreshBtn.addActionListener(e -> {
+            refreshPaymentTable();
+            refreshLoanTable();
+        });
 
         bottom.add(viewLoan); bottom.add(viewBtn); bottom.add(refreshBtn);
 
         p.add(form, BorderLayout.EAST);
         p.add(bottom, BorderLayout.SOUTH);
+
         refreshPaymentTable();
         return p;
     }
@@ -750,9 +834,15 @@ class ActionCellRenderer extends JPanel implements TableCellRenderer {
     private void refreshPaymentTable() {
         paymentModel.setRowCount(0);
         for (Payment p : store.getPayments()) {
-            paymentModel.addRow(new Object[] { p.getPaymentId(), p.getLoanId(), String.format("%.2f", p.getAmountPaid()), p.getDate() });
+            paymentModel.addRow(new Object[]{
+                    p.getPaymentId(),
+                    p.getLoanId(),
+                    String.format("%.2f", p.getAmountPaid()),
+                    p.getDate()
+            });
         }
     }
+
 
     private JPanel buildReportsPanel() {
         JPanel p = new JPanel(new BorderLayout());
